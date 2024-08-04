@@ -14,12 +14,12 @@ const register = async(req,res) => {
             res.status(400).json({msg: "User already exists"});
         }
 
-        const hashedPassword = generateHash(password);
-
+        const hashedPassword = await generateHash(password);
+        
         const user = new User({
             email: email,
             username: username,
-            pasword: hashedPassword
+            password: hashedPassword
         })
         await user.save();
 
@@ -27,6 +27,7 @@ const register = async(req,res) => {
 
     } catch (error) {
         res.status(500).json({msg: "Internal server error"});
+        console.log(error);
     }
 }
 
@@ -58,6 +59,8 @@ const login = async(req, res) => {
         })
     } catch (error) {
         res.status(500).json({msg: "Internal server error"});
+        console.log(error);
+        
     }
 }
 
@@ -69,6 +72,9 @@ const refreshToken = async(req, res) => {
 
     try {
         const decodedToken = verifyRefreshToken(token);
+        if(!decodedToken){
+            res.status(400).json({msg: "Invalid token"});
+        }
         const user = await User.findById(decodedToken.userId);
         if(!user || user.refreshToken != token){
             res.status(400).json({msg: "Invalid token"});
@@ -87,10 +93,11 @@ const refreshToken = async(req, res) => {
 
     } catch (error) {
         res.status(500).json({msg: "Internal server error"});
+        console.log(error);
     }
 }
 
-modules.export = {
+module.exports = {
     register,
     login,
     refreshToken

@@ -214,7 +214,7 @@ const deleteProject = async(req, res) => {
     }
 }
 
-modules.export = {
+module.exports = {
     createProject,
     addMembers,
     updateProject,

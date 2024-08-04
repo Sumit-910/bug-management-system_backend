@@ -240,7 +240,7 @@ const deleteOrg = async(req, res) => {
 }
 
 
-modules.export = {
+module.exports = {
     createOrg,
     createInvitation,
     requestToJoin,

@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const url = process.env.MONGO_URL;
 
 const connectionOptions = {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+    // useNewUrlParser: true,
+    // useUnifiedTopology: true,
     // useCreateIndex: true,
     // useFindAndModify: false
 }
