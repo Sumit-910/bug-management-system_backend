@@ -7,16 +7,18 @@ const organizationSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    description: {
+        type: String
+    },
     owner: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+        required: true,
+        ref: 'User'
     },
     members: [
         {
             userId: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: 'User'
             },
             role: {
                 type: String,

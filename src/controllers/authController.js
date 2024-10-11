@@ -5,13 +5,13 @@ const { generateHash, checkHashedString } = require('../utils/hash');
 const register = async(req,res) => {
     const {username, email, password} = req.body;
     if(!username || !email || !password){
-        res.status(400).json({msg: "Fill all the details"});
+        return res.status(400).json({msg: "Fill all the details"});
     }
 
     try {
         const existingUser = await User.findOne({email:email});
         if(existingUser){
-            res.status(400).json({msg: "User already exists"});
+            return res.status(400).json({msg: "User already exists"});
         }
 
         const hashedPassword = await generateHash(password);
@@ -23,7 +23,7 @@ const register = async(req,res) => {
         })
         await user.save();
 
-        res.status(200).json({msg: "success"});
+        return res.status(200).json({msg: "success"});
 
     } catch (error) {
         res.status(500).json({msg: "Internal server error"});
@@ -34,17 +34,18 @@ const register = async(req,res) => {
 const login = async(req, res) => {
     const {email, password} = req.body;
     if(!email || !password){
-        res.status(400).json({msg: "Fill all the details"});
+        return res.status(400).json({msg: "Fill all the details"});
     }
 
     try {
         const user = await User.findOne({email:email});
         if(!user){
-            res.status(400).json("Invalid Credentials");
+           return res.status(400).json({msg:"Invalid Credentials"});
         }
 
-        if(!checkHashedString(password, user.password)){
-            res.status(400).json("Invalid Credentials");
+        const correctPassword = await checkHashedString(password, user.password);
+        if(!correctPassword){
+            return res.status(400).json({msg:"Invalid Credentials"});
         }
 
         const accessToken = generateAccessToken(user);
@@ -53,9 +54,10 @@ const login = async(req, res) => {
         user.refreshToken = refreshToken;
         await user.save();
 
-        res.status(200).json({
+        return res.status(200).json({
             accessToken: accessToken,
-            refreshToken: refreshToken
+            refreshToken: refreshToken,
+            userId: user._id
         })
     } catch (error) {
         res.status(500).json({msg: "Internal server error"});

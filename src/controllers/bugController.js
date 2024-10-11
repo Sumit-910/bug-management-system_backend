@@ -5,7 +5,7 @@ const { STATUS, PRIORITY } = require('../constants');
 const { isAdmin, isProjectLead } = require('../utils/permissions');
 
 const createBug = async (req, res) => {
-    const { title, description, projectId, priority, deadline } = req.body;
+    const { name, description, projectId, priority, deadline } = req.body;
     const userId = req.user._id;
 
     if (!title || !description || !projectId || !deadline) {
@@ -24,7 +24,7 @@ const createBug = async (req, res) => {
         }
 
         const newBug = new Bug({
-            title,
+            title: name,
             description,
             project: projectId,
             priority: priority || PRIORITY.LOW,

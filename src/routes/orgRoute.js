@@ -4,6 +4,8 @@ const { orgController } = require('../controllers');
 const { authMiddleware } = require('../middlewares');
 
 route.post('/create',authMiddleware,orgController.createOrg);
+route.get('/getAllOrgs',authMiddleware,orgController.getAllOrgs);
+route.get('/singleOrg',authMiddleware,orgController.singleOrg);
 route.post('/invite',authMiddleware,orgController.createInvitation);
 route.post('/join',authMiddleware,orgController.requestToJoin);
 route.post('/approve',authMiddleware,orgController.approveJoinRequest);

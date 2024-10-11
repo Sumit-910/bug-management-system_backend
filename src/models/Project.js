@@ -14,6 +14,9 @@ const projectSchema = new mongoose.Schema({
     ProjectLead: {
         type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true
     },
+    projectLink: {
+        type: String
+    },
     members: [
         {
             type: mongoose.Schema.Types.ObjectId,

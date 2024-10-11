@@ -4,7 +4,7 @@ const { ROLE } = require('../constants');
 const { isAdmin, isProjectLead } = require('../utils/permissions');
 
 const createProject = async(req,res) => {
-    const { name, description, orgId } = req.body;
+    const { name, description, orgId, projectLink } = req.body;
     const userId = req.user._id;
 
     if(!name || !orgId){
@@ -26,6 +26,7 @@ const createProject = async(req,res) => {
             description: description,
             organization: orgId,
             ProjectLead: userId,
+            projectLink: projectLink,
             members: [userId]
         });
 
@@ -83,7 +84,7 @@ const addMembers = async(req, res) => {
 }
 
 const updateProject = async(req, res) => {
-    const {name, description, projectId} = req.body;
+    const {name, description, projectId, projectLink} = req.body;
     const userId = req.user._id;
 
     if(!name || !description || !projectId){
@@ -106,6 +107,7 @@ const updateProject = async(req, res) => {
 
         project.name = name;
         project.description = description;
+        project.projectLink = projectLink;
 
         await project.save();
         res.status(200).json({ msg: "Success" });

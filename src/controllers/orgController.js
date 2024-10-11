@@ -5,33 +5,155 @@ const User = require('../models/User');
 const { ROLE } = require('../constants');
 const { isAdmin } = require('../utils/permissions');
 
-const createOrg = async(req,res) => {
-    const { name } = req.body;
-    const userId = req.user._id;
-    if(!name){
-        res.status(400).json({msg: "Insufficient details"});
+const createOrg = async (req, res) => {
+    const { name, description } = req.body;
+    // console.log(name + " " + description);
+
+    const userId = req.userId;
+    if (!name) {
+        res.status(400).json({ msg: "Insufficient details" });
     }
 
     try {
+        // console.log("hello");
+
         const org = new Org({
             name: name,
+            description: description,
             owner: userId,
             members: [{
                 userId: userId,
-                role: 'Admin'
+                role: 'admin'
             }]
         })
-    
+        // console.log("hello 2");
+
+
         await org.save();
-        res.status(200).json({msg: "Success"});
+
+        const user = await User.findById(userId);
+        if (user) {
+            user.organizations.push(org._id);
+            await user.save();
+        }
+        
+        // console.log("hello 3");
+
+        res.status(200).json({ msg: "Success" });
     } catch (error) {
-        res.status(500).json({msg: "Internal server error"});
+        console.log(error);
+
+        res.status(500).json({ msg: "Internal server error" });
     }
 }
 
+const getAllOrgs = async (req, res) => {
+    const userId = req.userId;
+
+    try {
+        const allOrgs = await User.findById(userId)
+            .populate({
+                path: 'organizations',
+                select: 'name description owner',
+                populate: {
+                    path: 'owner',
+                    select: '_id username'
+                }
+            })
+            .lean();
+
+        const organizations = allOrgs.organizations.map(org => ({
+            id: org._id,
+            name: org.name,
+            description: org.description,
+            ownerId: org.owner._id,
+            ownerName: org.owner.name
+        }));
+
+        res.status(200).json(organizations);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ msg: "Internal server error" });
+    }
+};
+
+const singleOrg = async (req, res) => {
+    const { orgId } = req.body;
+    const userId = req.userId;
+
+    if (!orgId) {
+        return res.status(400).json({ msg: "Insufficient details" });
+    }
+
+    try {
+        const organization = await Org.findById(orgId)
+            .populate({
+                path: 'projects',
+                select: 'name'
+            })
+            .populate({
+                path: 'members.userId',
+                select: 'username'
+            })
+            .populate({
+                path: 'owner',
+                select: 'username'
+            });
+
+        if (!organization) {
+            return res.status(404).json({ msg: "Organization not found" });
+        }
+
+        const isOwner = organization.owner._id.toString() === userId;
+
+        if (!isOwner) {
+            return res.status(200).json({
+                id: organization._id,
+                name: organization.name,
+                description: organization.description,
+                owner: {
+                    id: organization.owner._id,
+                    name: organization.owner.username
+                },
+                projects: organization.projects.map(project => ({
+                    id: project._id,
+                    name: project.name
+                })),
+                createdAt: organization.createdAt
+            });
+        }
+
+        return res.status(200).json({
+            id: organization._id,
+            name: organization.name,
+            description: organization.description,
+            owner: {
+                id: organization.owner._id,
+                name: organization.owner.username
+            },
+            members: organization.members.map(member => ({
+                id: member.userId._id,
+                username: member.userId.username,
+                role: member.role
+            })),
+            projects: organization.projects.map(project => ({
+                id: project._id,
+                name: project.name
+            })),
+            pendingRequests: organization.pendingRequests,
+            createdAt: organization.createdAt,
+            updatedAt: organization.updatedAt
+        });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ msg: "Internal server error" });
+    }
+};
+
+
 const createInvitation = async (req, res) => {
     const { orgId } = req.body;
-    const userId = req.user._id;
+    const userId = req.userId;
 
     if (!orgId) {
         return res.status(400).json({ msg: "Insufficient details" });
@@ -43,8 +165,8 @@ const createInvitation = async (req, res) => {
             return res.status(404).json({ msg: "Organization not found" });
         }
 
-        if(!isAdmin(userId, organization)){
-            res.status(403).json("Not autherized");
+        if (!isAdmin(userId, organization)) {
+            return res.status(403).json({ msg: "Not autherized" });
         }
 
         const token = crypto.randomBytes(20).toString('hex');
@@ -58,9 +180,9 @@ const createInvitation = async (req, res) => {
 
         const invitationToken = token;
 
-        res.status(200).json({ 
-            msg: "Invitation created", 
-            invitationToken: invitationToken 
+        return res.status(200).json({
+            msg: "Invitation created",
+            invitationToken: invitationToken
         });
     } catch (error) {
         console.error(error.message);
@@ -76,28 +198,31 @@ const requestToJoin = async (req, res) => {
     }
 
     try {
-        const invitation = await Invitation.findOne({ token:token });
+        const invitation = await Invitation.findOne({ token: token });
         if (!invitation) {
             return res.status(404).json({ msg: "Invalid or expired invitation" });
         }
 
-        await Invitation.findByIdAndDelete(invitation._id);
-        
-        const org = Org.findOne({ _id:invitation.organizationId });
-        const user = User.findOne({ email:email });
-        org.pendingRequests.push({ email:email, username:user.username });
-        await organization.save();
+        await Invitation.findById(invitation._id);
+
+        const org = await Org.findOne({ _id: invitation.organizationId });
+        const user = await User.findOne({ email: email });
+        if (!org || !user) {
+            return res.status(404).json({ msg: "Invalid" });
+        }
+        org.pendingRequests.push({ email: email, username: user.username });
+        await org.save();
 
         res.status(200).json({ msg: "Join request submitted successfully" });
     } catch (error) {
-        console.error(error.message);
+        console.error(error);
         res.status(500).json({ msg: "Internal server error" });
     }
 };
 
 const approveJoinRequest = async (req, res) => {
     const { orgId, email } = req.body;
-    const userId = req.user._id;
+    const userId = req.userId;
 
     if (!orgId || !email) {
         return res.status(400).json({ msg: "Insufficient details" });
@@ -109,7 +234,7 @@ const approveJoinRequest = async (req, res) => {
             return res.status(404).json({ msg: "Organization not found" });
         }
 
-        if(!isAdmin(userId, organization)){
+        if (!isAdmin(userId, organization)) {
             res.status(403).json("Not autherized");
         }
 
@@ -126,10 +251,11 @@ const approveJoinRequest = async (req, res) => {
         organization.members.push({
             userId: user._id
         });
-
         organization.pendingRequests.splice(requestIndex, 1);
-
         await organization.save();
+
+        user.organizations.push(orgId);
+        await user.save();
 
         res.status(200).json({ msg: "Success" });
     } catch (error) {
@@ -138,14 +264,14 @@ const approveJoinRequest = async (req, res) => {
     }
 };
 
-const changeRole = async(req, res) => {
+const changeRole = async (req, res) => {
     const { orgId, memberId, newRole } = req.body;
-    const userId = req.user._id;
+    const userId = req.userId;
 
-    if(!orgId || !memberId || !newRole){
+    if (!orgId || !memberId || !newRole) {
         return res.status(400).json({ msg: "Insufficient details" });
     }
-    if (!ROLE.includes(newRole)) {
+    if (!Object.values(ROLE).includes(newRole)) {
         return res.status(400).json({ msg: "Invalid role" });
     }
 
@@ -155,8 +281,8 @@ const changeRole = async(req, res) => {
             return res.status(404).json({ msg: "Organization not found" });
         }
 
-        if(!isAdmin(userId, org)){
-            res.status(403).json("Not autherized");
+        if (!isAdmin(userId, org)) {
+            res.status(403).json("Not authorized");
         }
 
         const memberIndex = org.members.findIndex(member => member.userId.toString() === memberId);
@@ -178,7 +304,7 @@ const changeRole = async(req, res) => {
 
 const removeMember = async (req, res) => {
     const { organizationId, memberId } = req.body;
-    const userId = req.user._id;
+    const userId = req.userId;
 
     if (!organizationId || !memberId) {
         return res.status(400).json({ msg: "Organization ID and member ID are required" });
@@ -219,9 +345,9 @@ const removeMember = async (req, res) => {
     }
 };
 
-const deleteOrg = async(req, res) => {
+const deleteOrg = async (req, res) => {
     const { orgId } = req.body;
-    if(!orgId){
+    if (!orgId) {
         return res.status(400).json({ msg: "Insufficient details" });
     }
 
@@ -242,6 +368,8 @@ const deleteOrg = async(req, res) => {
 
 module.exports = {
     createOrg,
+    getAllOrgs,
+    singleOrg,
     createInvitation,
     requestToJoin,
     approveJoinRequest,
