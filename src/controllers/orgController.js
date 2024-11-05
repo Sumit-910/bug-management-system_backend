@@ -82,6 +82,8 @@ const singleOrg = async (req, res) => {
     const userId = req.userId;
 
     if (!orgId) {
+        console.log("in if " + orgId);
+        
         return res.status(400).json({ msg: "Insufficient details" });
     }
 
